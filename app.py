@@ -38,49 +38,48 @@ if not st.session_state.show_result:
 
         submitted = st.form_submit_button("🔍 Prediksi")
 
-    if submitted:
-        # Mapping kategori ke angka
-        home_map = {'RENT': 0, 'OWN': 1, 'MORTGAGE': 2, 'OTHER': 3}
-        intent_map = {
-            'EDUCATION': 0, 'MEDICAL': 1, 'VENTURE': 2,
-            'PERSONAL': 3, 'DEBTCONSOLIDATION': 4, 'HOMEIMPROVEMENT': 5
-        }
-        default_map = {'Pernah Gagal Bayar': 1, 'Tidak Pernah': 0}
+        if submitted:
+        try:
+            # Proses input pengguna
+            home_map = {'RENT': 0, 'OWN': 1, 'MORTGAGE': 2, 'OTHER': 3}
+            intent_map = {
+                'EDUCATION': 0, 'MEDICAL': 1, 'VENTURE': 2,
+                'PERSONAL': 3, 'DEBTCONSOLIDATION': 4, 'HOMEIMPROVEMENT': 5
+            }
+            default_map = {'Pernah Gagal Bayar': 1, 'Tidak Pernah': 0}
 
-        # Buat DataFrame input
-        input_data = pd.DataFrame([[
-            loan_amnt,
-            loan_int_rate,
-            person_income,
-            home_map[home_ownership],
-            intent_map[loan_intent],
-            default_map[previous_default]
-        ]], columns=[
-            'loan_amnt',
-            'loan_int_rate',
-            'person_income',
-            'person_home_ownership',
-            'loan_intent',
-            'previous_loan_defaults_on_file'
-        ])
+            input_data = pd.DataFrame([[
+                loan_amnt,
+                loan_int_rate,
+                person_income,
+                home_map[home_ownership],
+                intent_map[loan_intent],
+                default_map[previous_default]
+            ]], columns=[
+                'loan_amnt',
+                'loan_int_rate',
+                'person_income',
+                'person_home_ownership',
+                'loan_intent',
+                'previous_loan_defaults_on_file'
+            ])
 
-        # Pastikan urutan sesuai scaler
-        input_data = input_data[scaler.feature_names_in_]
+            input_data = input_data[scaler.feature_names_in_]
+            input_scaled = scaler.transform(input_data)
 
-        # Normalisasi
-        input_scaled = scaler.transform(input_data)
+            # Prediksi
+            if model_choice == 'Logistic Regression':
+                prediction = logreg.predict(input_scaled)[0]
+            elif model_choice == 'Random Forest':
+                prediction = rf.predict(input_scaled)[0]
+            else:
+                prediction = xgb.predict(input_scaled)[0]
 
-        # Prediksi
-        if model_choice == 'Logistic Regression':
-            prediction = logreg.predict(input_scaled)[0]
-        elif model_choice == 'Random Forest':
-            prediction = rf.predict(input_scaled)[0]
-        else:
-            prediction = xgb.predict(input_scaled)[0]
+            st.session_state.show_result = True
+            st.session_state.prediction = prediction
 
-        # Simpan status
-        st.session_state.show_result = True
-        st.session_state.prediction = prediction
+        except Exception as e:
+            st.error(f"Ada kesalahan saat memproses input: {e}")
 
 # Tampilkan hasil
 if st.session_state.show_result:

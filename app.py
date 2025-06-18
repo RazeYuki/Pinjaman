@@ -78,5 +78,6 @@ if submitted:
         st.error("❌ Pinjaman Anda kemungkinan **TIDAK DISETUJUI**.")
 
     st.info("Silakan isi kembali form jika ingin mencoba prediksi baru.")
-    st.button("🔁 Coba Lagi", on_click=st.experimental_rerun)
+    st.button("🔁 Coba Lagi", on_click=lambda: st.experimental_rerun())
+
 

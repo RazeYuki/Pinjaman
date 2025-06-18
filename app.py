@@ -70,9 +70,13 @@ if submitted:
     else:
         prediction = xgb.predict(input_scaled)[0]
 
-    # Tampilkan hasil
+       # Tampilkan hasil
     st.subheader("📊 Hasil Prediksi")
     if prediction == 1:
         st.success("✅ Pinjaman Anda kemungkinan **DISETUJUI**.")
     else:
         st.error("❌ Pinjaman Anda kemungkinan **TIDAK DISETUJUI**.")
+
+    st.info("Silakan isi kembali form jika ingin mencoba prediksi baru.")
+    st.button("🔁 Coba Lagi", on_click=st.experimental_rerun)
+

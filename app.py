@@ -8,39 +8,37 @@ rf = joblib.load("rf_model.pkl")
 xgb = joblib.load("xgb_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-# Set halaman
-st.set_page_config(page_title="Prediksi Pinjaman Bank", layout="centered")
-st.title("💰 Prediksi Persetujuan Pinjaman Bank")
-st.markdown("Silakan isi formulir berikut untuk memprediksi apakah pinjaman akan disetujui.")
+# Konfigurasi halaman
+st.set_page_config(page_title="Prediksi Persetujuan Pinjaman", layout="centered")
+st.title("📊 Prediksi Persetujuan Pinjaman Bank")
+st.markdown("Silakan isi data di bawah untuk memprediksi apakah pinjaman akan disetujui.")
 
-# Inisialisasi state
+# Inisialisasi session state
 if 'show_result' not in st.session_state:
     st.session_state.show_result = False
 
-# Tombol reset
+# Tombol Reset
 if st.button("🔁 Coba Lagi"):
     st.session_state.show_result = False
 
-# Form input pengguna
+# Form Input
 if not st.session_state.show_result:
-    with st.form("form_input"):
-        loan_amnt = st.number_input("💵 Jumlah Pinjaman", min_value=1000, step=100)
-        loan_int_rate = st.number_input("📈 Suku Bunga Pinjaman (%)", min_value=0.0, step=0.1)
-        person_income = st.number_input("👤 Pendapatan Tahunan", min_value=0, step=1000)
+    with st.form("input_form"):
+        loan_amnt = st.number_input("💵 Jumlah Pinjaman", min_value=500.0, step=100.0)
+        loan_int_rate = st.number_input("📈 Suku Bunga (%)", min_value=0.0, step=0.1)
+        person_income = st.number_input("👤 Pendapatan Tahunan", min_value=0.0, step=1000.0)
 
-        home_ownership = st.selectbox("🏠 Status Kepemilikan Rumah", ['RENT', 'OWN', 'MORTGAGE', 'OTHER'])
-        loan_intent = st.selectbox("🎯 Tujuan Pinjaman", [
-            'EDUCATION', 'MEDICAL', 'VENTURE', 'PERSONAL', 'DEBTCONSOLIDATION', 'HOMEIMPROVEMENT'
-        ])
-        previous_default = st.selectbox("📉 Riwayat Gagal Bayar", ['Pernah Gagal Bayar', 'Tidak Pernah'])
+        person_home_ownership = st.selectbox("🏠 Status Kepemilikan Rumah", ['RENT', 'OWN', 'MORTGAGE', 'OTHER'])
+        loan_intent = st.selectbox("🎯 Tujuan Pinjaman", ['EDUCATION', 'MEDICAL', 'VENTURE', 'PERSONAL', 'DEBTCONSOLIDATION', 'HOMEIMPROVEMENT'])
+        previous_default = st.selectbox("📉 Riwayat Gagal Bayar Sebelumnya", ['Pernah Gagal Bayar', 'Tidak Pernah'])
 
-        model_choice = st.selectbox("🧠 Pilih Model Prediksi", ['Logistic Regression', 'Random Forest', 'XGBoost'])
+        model_choice = st.radio("🧠 Pilih Model Prediksi", ['Logistic Regression', 'Random Forest', 'XGBoost'])
 
         submitted = st.form_submit_button("🔍 Prediksi")
 
-        if submitted:
+    if submitted:
         try:
-            # Proses input pengguna
+            # Konversi input kategori ke numerik
             home_map = {'RENT': 0, 'OWN': 1, 'MORTGAGE': 2, 'OTHER': 3}
             intent_map = {
                 'EDUCATION': 0, 'MEDICAL': 1, 'VENTURE': 2,
@@ -52,7 +50,7 @@ if not st.session_state.show_result:
                 loan_amnt,
                 loan_int_rate,
                 person_income,
-                home_map[home_ownership],
+                home_map[person_home_ownership],
                 intent_map[loan_intent],
                 default_map[previous_default]
             ]], columns=[
@@ -64,10 +62,13 @@ if not st.session_state.show_result:
                 'previous_loan_defaults_on_file'
             ])
 
+            # Pastikan urutan fitur cocok dengan scaler
             input_data = input_data[scaler.feature_names_in_]
+
+            # Transformasi input dengan scaler
             input_scaled = scaler.transform(input_data)
 
-            # Prediksi
+            # Prediksi dengan model yang dipilih
             if model_choice == 'Logistic Regression':
                 prediction = logreg.predict(input_scaled)[0]
             elif model_choice == 'Random Forest':
@@ -75,16 +76,17 @@ if not st.session_state.show_result:
             else:
                 prediction = xgb.predict(input_scaled)[0]
 
-            st.session_state.show_result = True
+            # Simpan hasil prediksi
             st.session_state.prediction = prediction
+            st.session_state.show_result = True
 
         except Exception as e:
             st.error(f"Ada kesalahan saat memproses input: {e}")
 
-# Tampilkan hasil
+# Menampilkan hasil prediksi
 if st.session_state.show_result:
-    st.subheader("📊 Hasil Prediksi")
+    st.subheader("📋 Hasil Prediksi")
     if st.session_state.prediction == 1:
-        st.success("✅ Pinjaman Anda kemungkinan **DISETUJUI**.")
+        st.success("✅ Pinjaman kemungkinan **DISETUJUI**.")
     else:
-        st.error("❌ Pinjaman Anda kemungkinan **TIDAK DISETUJUI**.")
+        st.error("❌ Pinjaman kemungkinan **TIDAK DISETUJUI**.")

@@ -8,17 +8,20 @@ rf = joblib.load("rf_model.pkl")
 xgb = joblib.load("xgb_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-st.set_page_config(page_title="Prediksi Persetujuan Pinjaman", layout="centered")
+# Set halaman
+st.set_page_config(page_title="Prediksi Pinjaman Bank", layout="centered")
 st.title("💰 Prediksi Persetujuan Pinjaman Bank")
-st.markdown("Silakan isi formulir berikut ini untuk memprediksi apakah pinjaman akan disetujui.")
+st.markdown("Silakan isi formulir berikut untuk memprediksi apakah pinjaman akan disetujui.")
 
-# Reset hasil prediksi jika tombol "Coba Lagi" ditekan
+# Inisialisasi state
 if 'show_result' not in st.session_state:
     st.session_state.show_result = False
 
+# Tombol reset
 if st.button("🔁 Coba Lagi"):
     st.session_state.show_result = False
 
+# Form input pengguna
 if not st.session_state.show_result:
     with st.form("form_input"):
         loan_amnt = st.number_input("💵 Jumlah Pinjaman", min_value=1000, step=100)
@@ -44,7 +47,7 @@ if not st.session_state.show_result:
         }
         default_map = {'Pernah Gagal Bayar': 1, 'Tidak Pernah': 0}
 
-        # Buat input dataframe
+        # Buat DataFrame input
         input_data = pd.DataFrame([[
             loan_amnt,
             loan_int_rate,
@@ -61,13 +64,13 @@ if not st.session_state.show_result:
             'previous_loan_defaults_on_file'
         ])
 
-        # Pastikan nama kolom sesuai scaler
+        # Pastikan urutan sesuai scaler
         input_data = input_data[scaler.feature_names_in_]
 
-        # Transform input
+        # Normalisasi
         input_scaled = scaler.transform(input_data)
 
-        # Pilih model
+        # Prediksi
         if model_choice == 'Logistic Regression':
             prediction = logreg.predict(input_scaled)[0]
         elif model_choice == 'Random Forest':
@@ -75,11 +78,11 @@ if not st.session_state.show_result:
         else:
             prediction = xgb.predict(input_scaled)[0]
 
-        # Simpan status untuk menampilkan hasil
+        # Simpan status
         st.session_state.show_result = True
         st.session_state.prediction = prediction
 
-# Tampilkan hasil prediksi jika sudah diproses
+# Tampilkan hasil
 if st.session_state.show_result:
     st.subheader("📊 Hasil Prediksi")
     if st.session_state.prediction == 1:

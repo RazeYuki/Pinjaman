@@ -1,92 +1,61 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 
-# Load model dan scaler
-logreg = joblib.load("logreg_model.pkl")
-rf = joblib.load("rf_model.pkl")
-xgb = joblib.load("xgb_model.pkl")
-scaler = joblib.load("scaler.pkl")
+# Load model terbaik dan scaler
+model = joblib.load('model_terbaik.pkl')
 
-# Konfigurasi halaman
-st.set_page_config(page_title="Prediksi Persetujuan Pinjaman", layout="centered")
-st.title("📊 Prediksi Persetujuan Pinjaman Bank")
-st.markdown("Silakan isi data di bawah untuk memprediksi apakah pinjaman akan disetujui.")
-
-# Inisialisasi session state
-if 'show_result' not in st.session_state:
-    st.session_state.show_result = False
-
-# Tombol Reset
-if st.button("🔁 Coba Lagi"):
-    st.session_state.show_result = False
+# Judul
+st.title("💳 Prediksi Persetujuan Pinjaman Bank")
+st.markdown("Masukkan informasi di bawah ini untuk memprediksi apakah pinjaman akan disetujui atau tidak.")
 
 # Form Input
-if not st.session_state.show_result:
-    with st.form("input_form"):
-        loan_amnt = st.number_input("💵 Jumlah Pinjaman", min_value=500.0, step=100.0)
-        loan_int_rate = st.number_input("📈 Suku Bunga (%)", min_value=0.0, step=0.1)
-        person_income = st.number_input("👤 Pendapatan Tahunan", min_value=0.0, step=1000.0)
+with st.form("loan_form"):
+    loan_amnt = st.number_input("Jumlah Pinjaman (USD)", min_value=500, max_value=50000, value=10000, step=500)
+    loan_int_rate = st.slider("Suku Bunga Pinjaman (%)", 0.0, 40.0, 13.5)
+    person_income = st.number_input("Pendapatan Pemohon (USD)", min_value=500, max_value=500000, value=50000, step=1000)
+    person_home_ownership = st.selectbox("Kepemilikan Rumah", ["MORTGAGE", "RENT", "OWN", "OTHER"])
+    loan_intent = st.selectbox("Tujuan Pinjaman", ["EDUCATION", "MEDICAL", "VENTURE", "PERSONAL", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"])
+    previous_loan_defaults_on_file = st.selectbox("Pernah Gagal Bayar Sebelumnya?", ["Yes", "No"])
 
-        person_home_ownership = st.selectbox("🏠 Status Kepemilikan Rumah", ['RENT', 'OWN', 'MORTGAGE', 'OTHER'])
-        loan_intent = st.selectbox("🎯 Tujuan Pinjaman", ['EDUCATION', 'MEDICAL', 'VENTURE', 'PERSONAL', 'DEBTCONSOLIDATION', 'HOMEIMPROVEMENT'])
-        previous_default = st.selectbox("📉 Riwayat Gagal Bayar Sebelumnya", ['Pernah Gagal Bayar', 'Tidak Pernah'])
+    submitted = st.form_submit_button("🔍 Prediksi")
 
-        model_choice = st.radio("🧠 Pilih Model Prediksi", ['Logistic Regression', 'Random Forest', 'XGBoost'])
+# Mapping Input ke Bentuk Data Model
+if submitted:
+    # Konversi input ke bentuk DataFrame
+    input_data = pd.DataFrame({
+        'loan_amnt': [loan_amnt],
+        'loan_int_rate': [loan_int_rate],
+        'person_income': [person_income],
+        'person_home_ownership': [person_home_ownership],
+        'loan_intent': [loan_intent],
+        'previous_loan_defaults_on_file': [previous_loan_defaults_on_file]
+    })
 
-        submitted = st.form_submit_button("🔍 Prediksi")
+    # Label Encoding manual sesuai model
+    label_maps = {
+        'person_home_ownership': {"MORTGAGE": 2, "RENT": 3, "OWN": 1, "OTHER": 0},
+        'loan_intent': {
+            "EDUCATION": 0, "MEDICAL": 1, "VENTURE": 5,
+            "PERSONAL": 3, "HOMEIMPROVEMENT": 2, "DEBTCONSOLIDATION": 4
+        },
+        'previous_loan_defaults_on_file': {"Yes": 1, "No": 0}
+    }
 
-    if submitted:
-        try:
-            # Konversi input kategori ke numerik
-            home_map = {'RENT': 0, 'OWN': 1, 'MORTGAGE': 2, 'OTHER': 3}
-            intent_map = {
-                'EDUCATION': 0, 'MEDICAL': 1, 'VENTURE': 2,
-                'PERSONAL': 3, 'DEBTCONSOLIDATION': 4, 'HOMEIMPROVEMENT': 5
-            }
-            default_map = {'Pernah Gagal Bayar': 1, 'Tidak Pernah': 0}
+    for col, mapping in label_maps.items():
+        input_data[col] = input_data[col].map(mapping)
 
-            input_data = pd.DataFrame([[
-                loan_amnt,
-                loan_int_rate,
-                person_income,
-                home_map[person_home_ownership],
-                intent_map[loan_intent],
-                default_map[previous_default]
-            ]], columns=[
-                'loan_amnt',
-                'loan_int_rate',
-                'person_income',
-                'person_home_ownership',
-                'loan_intent',
-                'previous_loan_defaults_on_file'
-            ])
+    # Prediksi
+    prediction = model.predict(input_data)[0]
 
-            # Pastikan urutan fitur cocok dengan scaler
-            input_data = input_data[scaler.feature_names_in_]
-
-            # Transformasi input dengan scaler
-            input_scaled = scaler.transform(input_data)
-
-            # Prediksi dengan model yang dipilih
-            if model_choice == 'Logistic Regression':
-                prediction = logreg.predict(input_scaled)[0]
-            elif model_choice == 'Random Forest':
-                prediction = rf.predict(input_scaled)[0]
-            else:
-                prediction = xgb.predict(input_scaled)[0]
-
-            # Simpan hasil prediksi
-            st.session_state.prediction = prediction
-            st.session_state.show_result = True
-
-        except Exception as e:
-            st.error(f"Ada kesalahan saat memproses input: {e}")
-
-# Menampilkan hasil prediksi
-if st.session_state.show_result:
-    st.subheader("📋 Hasil Prediksi")
-    if st.session_state.prediction == 1:
-        st.success("✅ Pinjaman kemungkinan **DISETUJUI**.")
+    # Output
+    st.subheader("📌 Hasil Prediksi:")
+    if prediction == 1:
+        st.success("🎉 Pinjaman kemungkinan besar akan disetujui.")
     else:
-        st.error("❌ Pinjaman kemungkinan **TIDAK DISETUJUI**.")
+        st.error("❌ Pinjaman kemungkinan besar akan ditolak.")
+
+    # Tombol reset
+    if st.button("🔁 Coba Lagi"):
+        st.experimental_rerun()

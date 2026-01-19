@@ -1,61 +1,163 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 
-# Load model terbaik dan scaler
-model = joblib.load('model_terbaik.pkl')
+# ==============================
+# LOAD MODEL
+# ==============================
+model = joblib.load("model_terbaik.pkl")
 
-# Judul
-st.title("💳 Prediksi Persetujuan Pinjaman Bank")
-st.markdown("Masukkan informasi di bawah ini untuk memprediksi apakah pinjaman akan disetujui atau tidak.")
+st.set_page_config(
+    page_title="Prediksi Persetujuan Pinjaman",
+    layout="centered"
+)
 
-# Form Input
-with st.form("loan_form"):
-    loan_amnt = st.number_input("Jumlah Pinjaman (USD)", min_value=500, max_value=50000, value=10000, step=500)
-    loan_int_rate = st.slider("Suku Bunga Pinjaman (%)", 0.0, 40.0, 13.5)
-    person_income = st.number_input("Pendapatan Pemohon (USD)", min_value=500, max_value=500000, value=50000, step=1000)
-    person_home_ownership = st.selectbox("Kepemilikan Rumah", ["MORTGAGE", "RENT", "OWN", "OTHER"])
-    loan_intent = st.selectbox("Tujuan Pinjaman", ["EDUCATION", "MEDICAL", "VENTURE", "PERSONAL", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"])
-    previous_loan_defaults_on_file = st.selectbox("Pernah Gagal Bayar Sebelumnya?", ["Yes", "No"])
+# ==============================
+# HEADER
+# ==============================
+st.title("🏦 Prediksi Persetujuan Pinjaman")
 
-    submitted = st.form_submit_button("🔍 Prediksi")
+st.markdown("""
+Aplikasi ini membantu memprediksi **apakah pengajuan pinjaman berpotensi disetujui atau ditolak**
+berdasarkan informasi pemohon.
 
-# Mapping Input ke Bentuk Data Model
-if submitted:
-    # Konversi input ke bentuk DataFrame
+📌 *Aplikasi ini merupakan **sistem pendukung keputusan**, bukan keputusan final dari bank.*
+""")
+
+st.markdown("---")
+
+# ==============================
+# DATA PEMOHON
+# ==============================
+st.subheader("📄 Data Pemohon")
+
+loan_amnt = st.number_input(
+    "Jumlah Pinjaman (USD)",
+    min_value=500,
+    max_value=50_000,
+    value=10_000,
+    step=500,
+    help="Total dana pinjaman yang diajukan"
+)
+
+loan_int_rate = st.slider(
+    "Suku Bunga Pinjaman (%)",
+    min_value=0.0,
+    max_value=40.0,
+    value=13.5,
+    help="Suku bunga tahunan pinjaman"
+)
+
+person_income = st.number_input(
+    "Pendapatan Pemohon per Tahun (USD)",
+    min_value=500,
+    max_value=500_000,
+    value=50_000,
+    step=1_000,
+    help="Pendapatan tahunan pemohon"
+)
+
+# ==============================
+# INFORMASI TAMBAHAN
+# ==============================
+st.subheader("🏠 Informasi Tambahan")
+
+person_home_ownership = st.selectbox(
+    "Status Kepemilikan Rumah",
+    ["MORTGAGE", "RENT", "OWN", "OTHER"],
+    help="Status tempat tinggal pemohon"
+)
+
+loan_intent = st.selectbox(
+    "Tujuan Pinjaman",
+    [
+        "EDUCATION",
+        "MEDICAL",
+        "VENTURE",
+        "PERSONAL",
+        "HOMEIMPROVEMENT",
+        "DEBTCONSOLIDATION"
+    ],
+    help="Tujuan penggunaan dana pinjaman"
+)
+
+previous_loan_defaults_on_file = st.selectbox(
+    "Riwayat Gagal Bayar Sebelumnya",
+    ["No", "Yes"],
+    help="Apakah pemohon pernah gagal bayar sebelumnya"
+)
+
+st.markdown("---")
+
+# ==============================
+# PREDIKSI
+# ==============================
+if st.button("🔍 Prediksi Persetujuan"):
+
+    # ==============================
+    # DATAFRAME INPUT
+    # ==============================
     input_data = pd.DataFrame({
-        'loan_amnt': [loan_amnt],
-        'loan_int_rate': [loan_int_rate],
-        'person_income': [person_income],
-        'person_home_ownership': [person_home_ownership],
-        'loan_intent': [loan_intent],
-        'previous_loan_defaults_on_file': [previous_loan_defaults_on_file]
+        "loan_amnt": [loan_amnt],
+        "loan_int_rate": [loan_int_rate],
+        "person_income": [person_income],
+        "person_home_ownership": [person_home_ownership],
+        "loan_intent": [loan_intent],
+        "previous_loan_defaults_on_file": [previous_loan_defaults_on_file]
     })
 
-    # Label Encoding manual sesuai model
+    # ==============================
+    # LABEL ENCODING (SESUAI MODEL)
+    # ==============================
     label_maps = {
-        'person_home_ownership': {"MORTGAGE": 2, "RENT": 3, "OWN": 1, "OTHER": 0},
-        'loan_intent': {
-            "EDUCATION": 0, "MEDICAL": 1, "VENTURE": 5,
-            "PERSONAL": 3, "HOMEIMPROVEMENT": 2, "DEBTCONSOLIDATION": 4
+        "person_home_ownership": {
+            "OTHER": 0,
+            "OWN": 1,
+            "MORTGAGE": 2,
+            "RENT": 3
         },
-        'previous_loan_defaults_on_file': {"Yes": 1, "No": 0}
+        "loan_intent": {
+            "EDUCATION": 0,
+            "MEDICAL": 1,
+            "HOMEIMPROVEMENT": 2,
+            "PERSONAL": 3,
+            "DEBTCONSOLIDATION": 4,
+            "VENTURE": 5
+        },
+        "previous_loan_defaults_on_file": {
+            "No": 0,
+            "Yes": 1
+        }
     }
 
     for col, mapping in label_maps.items():
         input_data[col] = input_data[col].map(mapping)
 
-    # Prediksi
+    # ==============================
+    # PREDIKSI
+    # ==============================
     prediction = model.predict(input_data)[0]
 
-    # Output
-    st.subheader("📌 Hasil Prediksi:")
-    if prediction == 1:
-        st.success("🎉 Pinjaman kemungkinan besar akan disetujui.")
-    else:
-        st.error("❌ Pinjaman kemungkinan besar akan ditolak.")
+    # ==============================
+    # OUTPUT
+    # ==============================
+    st.subheader("📊 Hasil Prediksi")
 
-    # Tombol reset
-    if st.button("🔁 Coba Lagi"):
-        st.experimental_rerun()
+    if prediction == 1:
+        st.success("✅ **Pinjaman Diprediksi DISETUJUI**")
+        st.markdown("""
+        Profil pemohon menunjukkan karakteristik yang **relatif baik**
+        berdasarkan pola data historis.
+        """)
+    else:
+        st.error("❌ **Pinjaman Diprediksi DITOLAK**")
+        st.markdown("""
+        Profil pemohon menunjukkan tingkat risiko yang **lebih tinggi**
+        berdasarkan pola data historis.
+        """)
+
+    st.info("""
+    ⚠️ **Catatan Penting:**  
+    Hasil prediksi ini bersifat **pendukung keputusan** dan tidak
+    merepresentasikan keputusan mutlak dari pihak bank.
+    """)
